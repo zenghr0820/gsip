@@ -61,14 +61,13 @@ type Message interface {
 	ContentType() (*ContentType, bool)
 	Contact() (*ContactHeader, bool)
 
-	//Transaction() *transaction.Tx // 返回事务层指针
-	//SetTransaction(tx *transaction.Tx)  // 设置事务层
-
-	Transport() string          // 传输层
-	Source() string             // 来源地址
-	SetSource(src string)       // 设置源地址
-	Destination() string        // 目的地地址
-	SetDestination(dest string) // 设置目的地地址
+	Transaction() Transaction      // 返回事务层指针
+	SetTransaction(tx Transaction) // 返回事务层指针
+	Transport() string             // 传输层
+	Source() string                // 来源地址
+	SetSource(src string)          // 设置源地址
+	Destination() string           // 目的地地址
+	SetDestination(dest string)    // 设置目的地地址
 
 	IsCancel() bool // 是否关闭
 	IsAck() bool    // 是否是 ACK 信息
@@ -78,7 +77,7 @@ type Message interface {
 type message struct {
 	// message headers
 	*headers
-	//tx 	*transaction.Tx
+	tx         Transaction
 	messID     MessageID
 	sipVersion string
 	body       string
@@ -143,12 +142,13 @@ func (msg *message) Transport() string {
 	}
 }
 
-//func (msg *message) Transaction() *transaction.Tx {
-//	return msg.tx
-//}
-//func (msg *message) SetTransaction(tx *transaction.Tx) {
-//	msg.tx = tx
-//}
+func (msg *message) Transaction() Transaction {
+	return msg.tx
+}
+
+func (msg *message) SetTransaction(tx Transaction) {
+	msg.tx = tx
+}
 
 func (msg *message) Source() string {
 	return msg.src

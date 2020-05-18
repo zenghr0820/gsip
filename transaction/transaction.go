@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zenghr0820/gsip/callback"
 	"github.com/zenghr0820/gsip/logger"
 	"github.com/zenghr0820/gsip/sip"
 	"github.com/zenghr0820/gsip/transport"
@@ -16,9 +17,8 @@ func CreateLayer(tpl transport.Layer) Layer {
 		tpl:          tpl,
 		transactions: createTransactionPool(),
 
-		requests:   make(chan sip.ServerTransaction),
-		ackRequest: make(chan sip.Request),
-		responses:  make(chan sip.Response),
+		requests:  make(chan sip.Request),
+		responses: make(chan sip.Response),
 
 		errs:     make(chan error),
 		done:     make(chan struct{}),
@@ -33,12 +33,12 @@ func CreateLayer(tpl transport.Layer) Layer {
 // 事务层定义与实现
 type Layer interface {
 	Send(message sip.Message) (sip.Transaction, error)
+	AutoFillMessageHeaderAndSend(message sip.Message, callback callback.Callback) (sip.Transaction, error)
 	// 传输层实例
 	Transport() transport.Layer
 	// Requests returns channel with new incoming server transactions.
-	Requests() <-chan sip.ServerTransaction
-	// ACKs on 2xx
-	AckRequest() <-chan sip.Request
+	//Requests() <-chan sip.ServerTransaction
+	Requests() <-chan sip.Request
 	// Responses returns channel with not matched responses.
 	Responses() <-chan sip.Response
 	Errors() <-chan error
@@ -51,7 +51,7 @@ type Layer interface {
 
 type layer struct {
 	tpl          transport.Layer
-	requests     chan sip.ServerTransaction
+	requests     chan sip.Request
 	ackRequest   chan sip.Request
 	responses    chan sip.Response
 	transactions *transactionPool
@@ -65,13 +65,8 @@ type layer struct {
 }
 
 // 返回 请求传输通道
-func (txl *layer) Requests() <-chan sip.ServerTransaction {
+func (txl *layer) Requests() <-chan sip.Request {
 	return txl.requests
-}
-
-// 返回 Ack 请求传输通道
-func (txl *layer) AckRequest() <-chan sip.Request {
-	return txl.ackRequest
 }
 
 // 返回响应传输通道
@@ -87,21 +82,6 @@ func (txl *layer) Errors() <-chan error {
 // 返回传输层
 func (txl *layer) Transport() transport.Layer {
 	return txl.tpl
-}
-
-// 发送请求或者响应
-func (txl *layer) Send(message sip.Message) (sip.Transaction, error) {
-	logger.Debug("[txl_layer] -> Start parsing information type ")
-	switch msg := message.(type) {
-	case sip.Request:
-		return txl.sendRequest(msg)
-	case sip.Response:
-		return txl.sendResponse(msg)
-	default:
-		logger.Error("[txl_layer] -> message type error")
-	}
-
-	return nil, fmt.Errorf("[txl_layer] -> message type mismatch")
 }
 
 func (txl *layer) String() string {
@@ -130,6 +110,34 @@ func (txl *layer) Close() {
 // 确认关闭操作是否完成
 func (txl *layer) Done() <-chan struct{} {
 	return txl.done
+}
+
+// 发送请求或者响应
+func (txl *layer) Send(message sip.Message) (sip.Transaction, error) {
+	logger.Debug("[txl_layer] -> Start parsing information type ")
+	switch msg := message.(type) {
+	case sip.Request:
+		return txl.sendRequest(msg)
+	case sip.Response:
+		return txl.sendResponse(msg)
+	default:
+		logger.Error("[txl_layer] -> message type error")
+	}
+	return nil, fmt.Errorf("[txl_layer] -> message type mismatch")
+}
+
+// 自动填充消息头部数据
+func (txl *layer) AutoFillMessageHeaderAndSend(message sip.Message, callback callback.Callback) (sip.Transaction, error) {
+
+	switch msg := message.(type) {
+	case sip.Request:
+		return txl.sendRequest(msg)
+	case sip.Response:
+		return txl.sendResponse(msg)
+	default:
+		logger.Error("[txl_layer] -> message type error")
+	}
+	return nil, fmt.Errorf("[txl_layer] -> message type mismatch")
 }
 
 // 发送请求
@@ -225,14 +233,39 @@ func (txl *layer) listenMessages() {
 func (txl *layer) serveTransaction(tx Tx) {
 	defer func() {
 		txl.transactions.drop(tx.Key())
-
-		logger.Debug("[txl_layer] -> transaction deleted")
-
+		logger.Debugf("[txl_layer] -> transaction[%s] deleted", tx.Key())
 		txl.txWg.Done()
 	}()
 
 	logger.Debug("[txl_layer] -> start serve transaction")
 	defer logger.Debug("[txl_layer] -> stop serve transaction")
+
+	switch tx := tx.(type) {
+	case ClientTx:
+		go func() {
+			for {
+				select {
+				case resp, ok := <-tx.Responses():
+					if !ok {
+						return
+					}
+					txl.responses <- resp
+				}
+			}
+		}()
+	case ServerTx:
+		go func() {
+			for {
+				select {
+				case res, ok := <-tx.Requests():
+					if !ok {
+						return
+					}
+					txl.requests <- res
+				}
+			}
+		}()
+	}
 
 	for {
 		select {
@@ -288,7 +321,7 @@ func (txl *layer) handleRequest(req sip.Request) {
 	if req.IsAck() {
 		select {
 		case <-txl.canceled:
-		case txl.ackRequest <- req:
+		case txl.requests <- req:
 		}
 		return
 	}
@@ -329,12 +362,15 @@ func (txl *layer) handleRequest(req sip.Request) {
 
 	// pass up request
 	// 往上层传递
-	logger.Info("[txl_layer] -> passing up SIP request...")
+	logger.Debug("[txl_layer] -> passing up SIP request...")
+
+	// 设置事务层
+	req.SetTransaction(tx)
 
 	select {
 	case <-txl.canceled:
-	case txl.requests <- tx:
-		logger.Info("[txl_layer] -> SIP request passed up [TU]")
+	case txl.requests <- req:
+		logger.Debug("[txl_layer] -> SIP request passed up [TU]")
 	}
 }
 
@@ -354,6 +390,9 @@ func (txl *layer) handleResponse(res sip.Response) {
 		// RFC 3261 - 17.1.1.2.
 		// Not matched responses should be passed directly to the UA
 		// 不匹配的响应应直接传递给UA
+		// 设置事务层
+		res.SetTransaction(tx)
+
 		select {
 		case <-txl.canceled:
 		case txl.responses <- res:
@@ -390,7 +429,7 @@ func (txl *layer) getClientTx(msg sip.Message) (ClientTx, error) {
 
 	switch tx := tx.(type) {
 	case ClientTx:
-		logger.Info("[txl_layer] -> client transaction found")
+		logger.Infof("[txl_layer] -> client transaction found: %s", tx.Key())
 
 		return tx, nil
 	default:
@@ -405,7 +444,7 @@ func (txl *layer) getClientTx(msg sip.Message) (ClientTx, error) {
 
 // RFC 17.2.3.
 func (txl *layer) getServerTx(msg sip.Message) (ServerTx, error) {
-	logger.Info("[txl_layer] -> searching server transaction")
+	logger.Debug("[txl_layer] -> searching server transaction")
 
 	key, err := MakeServerTxKey(msg)
 	if err != nil {
@@ -424,7 +463,7 @@ func (txl *layer) getServerTx(msg sip.Message) (ServerTx, error) {
 
 	switch tx := tx.(type) {
 	case ServerTx:
-		logger.Info("[txl_layer] -> server transaction found")
+		logger.Infof("[txl_layer] -> server transaction found: %s", tx.Key())
 
 		return tx, nil
 	default:

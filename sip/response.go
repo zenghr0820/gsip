@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/zenghr0820/gsip/logger"
 )
 
 // Response RFC 3261 - 7.2.
@@ -241,7 +240,6 @@ func (res *response) Destination() string {
 
 func (res *response) CreateAck() Request {
 	remoteAddr := res.Source()
-	logger.Error(remoteAddr)
 	ackRequest := CreateSimpleRequest(ACK, remoteAddr)
 	ackRequest.SetSipVersion(res.SipVersion())
 

@@ -143,7 +143,7 @@ func (handler *connectionHandler) ConnectionServer(done func()) {
 			case <-handler.cancel:
 				return
 			case handler.output <- msg:
-				logger.Infof("[connection_handle:%s] -> SIP message passed up [connection_pool]", handler.Connection().Network())
+				logger.Debugf("[connection_handle:%s] -> SIP message passed up [connection_pool]", handler.Connection().Network())
 			}
 
 			if !handler.Expiry().IsZero() {

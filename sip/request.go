@@ -149,7 +149,7 @@ func (req *request) StartLine() string {
 	}
 	req.SetRecipient(recipient)
 
-	logger.Info("recipient = ", recipient)
+	//logger.Info("recipient = ", recipient)
 
 	buffer.WriteString(
 		fmt.Sprintf(

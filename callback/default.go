@@ -102,8 +102,6 @@ func (c *callback) GetResponseHandle() (sip.ResponseHandler, bool) {
 func (c *callback) DoRequest(request sip.Request, tx sip.ServerTransaction) error {
 	handler, ok := c.GetRequestHandle(request.Method())
 	if !ok {
-		logger.Warnf("[requestHandle] -> SIP request handler not found")
-
 		return &NotExitCallbackError{
 			name: string(request.Method()),
 		}

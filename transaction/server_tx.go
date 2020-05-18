@@ -11,6 +11,13 @@ import (
 	"github.com/zenghr0820/gsip/transport"
 )
 
+type ServerTx interface {
+	Tx
+	Requests() <-chan sip.Request
+	// 返回响应
+	SendResponse(res sip.Response) error
+}
+
 // 定义服务端事务以及实现
 func NewServerTx(origin sip.Request, tpl transport.Layer) (ServerTx, error) {
 	key, err := MakeServerTxKey(origin)
@@ -23,8 +30,8 @@ func NewServerTx(origin sip.Request, tpl transport.Layer) (ServerTx, error) {
 	tx.tpl = tpl
 	tx.session = sip.CreateSession()
 	// about ~10 retransmits
-	tx.ackRequest = make(chan sip.Request, 64)
-	tx.cancelRequest = make(chan sip.Request, 64)
+	tx.requests = make(chan sip.Request, 64)
+	//tx.cancelRequest = make(chan sip.Request, 64)
 	tx.errs = make(chan error, 64)
 	tx.done = make(chan bool)
 
@@ -37,16 +44,6 @@ func NewServerTx(origin sip.Request, tpl transport.Layer) (ServerTx, error) {
 	return tx, nil
 }
 
-type ServerTx interface {
-	Tx
-	// 返回响应
-	SendResponse(res sip.Response) error
-	// ACK 请求
-	AckRequest() <-chan sip.Request
-	// 取消一个请求 RFC 3261 - 9.0.
-	CancelRequest() <-chan sip.Request
-}
-
 // 实现
 type serverTx struct {
 	// 通用事务
@@ -55,10 +52,8 @@ type serverTx struct {
 	lastAck sip.Request
 	// 最后一个 Cancel 请求
 	lastCancel sip.Request
-	// ack 请求传输通道
-	ackRequest chan sip.Request
-	// cancel 请求传输通道
-	cancelRequest chan sip.Request
+	// 请求传输通道
+	requests chan sip.Request
 	// 定时器定义 RFC 3261 - 17.2.1 INVITE 服务端事务
 	timerG    *time.Timer
 	timeGTime time.Duration
@@ -127,13 +122,12 @@ func (tx *serverTx) Receive(msg sip.Message) error {
 		}
 	}
 
-	logger.Infof("[serverTx] -> received SIP request:\n%s", req.Method())
-
 	tx.mu.Lock()
 	if tx.timer1xx != nil {
 		tx.timer1xx.Stop()
 		tx.timer1xx = nil
 	}
+	req.SetTransaction(tx)
 	tx.mu.Unlock()
 
 	var input = fsm.NO_INPUT
@@ -159,7 +153,7 @@ func (tx *serverTx) Receive(msg sip.Message) error {
 			Msg: req.String(),
 		}
 	}
-
+	logger.Infof("[serverTx] -> received SIP FMS -> ", input)
 	return tx.fsm.Spin(input)
 }
 
@@ -191,12 +185,8 @@ func (tx *serverTx) SendResponse(res sip.Response) error {
 	return tx.fsm.Spin(input)
 }
 
-func (tx *serverTx) AckRequest() <-chan sip.Request {
-	return tx.ackRequest
-}
-
-func (tx *serverTx) CancelRequest() <-chan sip.Request {
-	return tx.cancelRequest
+func (tx *serverTx) Requests() <-chan sip.Request {
+	return tx.requests
 }
 
 func (tx *serverTx) Close() {
@@ -449,8 +439,8 @@ func (tx *serverTx) delete() {
 		tx.mu.Lock()
 
 		close(tx.done)
-		close(tx.ackRequest)
-		close(tx.cancelRequest)
+		close(tx.requests)
+		//close(tx.cancelRequest)
 		close(tx.errs)
 
 		tx.mu.Unlock()
@@ -678,7 +668,7 @@ func (tx *serverTx) actionConfirm() fsm.Input {
 	if ack != nil {
 		select {
 		case <-tx.done:
-		case tx.ackRequest <- ack:
+		case tx.requests <- ack:
 		}
 	}
 
@@ -705,7 +695,7 @@ func (tx *serverTx) actionCancel() fsm.Input {
 
 		select {
 		case <-tx.done:
-		case tx.cancelRequest <- cancel:
+		case tx.requests <- cancel:
 		}
 	}
 

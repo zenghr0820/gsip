@@ -56,7 +56,7 @@ func NewClientTx(origin sip.Request, tpl transport.Layer) (ClientTx, error) {
 func (tx *clientTx) Init() error {
 	tx.initFSM()
 
-	logger.Infof("[clientTx] -> sending SIP request:\n%s", tx.origin.Short())
+	logger.Infof("[clientTx] -> sending SIP request: %s", tx.Key())
 
 	if err := tx.tpl.Send(tx.Origin()); err != nil {
 		tx.mu.Lock()
@@ -135,6 +135,7 @@ func (tx *clientTx) Receive(msg sip.Message) error {
 
 	tx.mu.Lock()
 	tx.lastResp = res
+	tx.lastResp.SetTransaction(tx)
 	tx.mu.Unlock()
 
 	var input fsm.Input

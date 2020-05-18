@@ -10,6 +10,7 @@ import (
 	"github.com/zenghr0820/gsip/callback"
 	"github.com/zenghr0820/gsip/logger"
 	"github.com/zenghr0820/gsip/sip"
+	"github.com/zenghr0820/gsip/utils"
 )
 
 type service struct {
@@ -41,7 +42,61 @@ func (s *service) Send(message sip.Message) (sip.Transaction, error) {
 	}
 
 	logger.Debug("[G.SIP] -> Start parsing information type ")
+	s.autoFillMessageHeaderAndSend(message)
 	return s.opts.tx.Send(message)
+}
+
+func (s *service) autoFillMessageHeaderAndSend(message sip.Message) {
+	autoAppendMethods := map[sip.RequestMethod]bool{
+		sip.INVITE:   true,
+		sip.REGISTER: true,
+		sip.OPTIONS:  true,
+		sip.REFER:    true,
+		sip.NOTIFY:   true,
+	}
+
+	var msgMethod sip.RequestMethod
+	var statusCode sip.StatusCode
+	switch m := message.(type) {
+	case sip.Request:
+		msgMethod = m.Method()
+	case sip.Response:
+		statusCode = m.StatusCode()
+		if cseq, ok := m.CSeq(); ok && !m.IsProvisional() {
+			msgMethod = cseq.MethodName
+		}
+	}
+
+	if statusCode == sip.StatusMethodNotAllowed || len(msgMethod) > 0 {
+		if _, ok := autoAppendMethods[msgMethod]; ok {
+			hdrs := message.GetHeaders("Allow")
+			if len(hdrs) == 0 {
+				allow := make(sip.AllowHeader, 0)
+				for _, method := range s.opts.Callback.GetAllowedMethods() {
+					allow = append(allow, method)
+				}
+
+				message.AddHeader(allow)
+			}
+
+			hdrs = message.GetHeaders("Supported")
+			if len(hdrs) == 0 {
+				message.AddHeader(&sip.SupportedHeader{
+					Options: []string{},
+				})
+			}
+		}
+	}
+
+	if hdrs := message.GetHeaders("User-Agent"); len(hdrs) == 0 {
+		userAgent := sip.UserAgentHeader("GSIP")
+		message.AddHeader(&userAgent)
+	}
+
+	// from tag
+	if from, ok := message.From(); ok && !from.Params.Has("tag") {
+		from.Params.Add("tag", &sip.String{Str: utils.RandString(10, true)})
+	}
 }
 
 func (s *service) Run() error {
@@ -81,18 +136,18 @@ func (s *service) start() {
 
 	for {
 		select {
-		case tx, ok := <-s.opts.tx.Requests():
+		case request, ok := <-s.opts.tx.Requests():
 			if !ok {
 				return
 			}
 			s.hwg.Add(1)
-			go s.handleRequest(tx.Origin(), tx)
+			go s.handleRequest(request)
 		case res, ok := <-s.opts.tx.Responses():
 			if !ok {
 				return
 			}
 			s.hwg.Add(1)
-			go s.handleResponse(res, nil)
+			go s.handleResponse(res)
 		case err, ok := <-s.opts.tx.Errors():
 			if !ok {
 				return
@@ -128,13 +183,18 @@ func (s *service) stop() {
 }
 
 // 处理请求
-func (s *service) handleRequest(request sip.Request, tx sip.ServerTransaction) {
+func (s *service) handleRequest(request sip.Request) {
 	defer s.hwg.Done()
+
+	var tx sip.ServerTransaction
+	if t := request.Transaction(); t != nil {
+		tx = t.(sip.ServerTransaction)
+	}
 
 	err := s.opts.Callback.DoRequest(request, tx)
 	// NotExitCallbackError
-	var notExitCallbackError callback.NotExitCallbackError
-	if err != nil && errors.Is(err, &notExitCallbackError) {
+	var notExitCallbackError *callback.NotExitCallbackError
+	if err != nil && errors.As(err, &notExitCallbackError) {
 		logger.Warnf("[G.SIP] -> SIP %s request handler not found", request.Method())
 
 		response := request.CreateResponseReason(sip.StatusMethodNotAllowed, "Method Not Allowed")
@@ -147,9 +207,12 @@ func (s *service) handleRequest(request sip.Request, tx sip.ServerTransaction) {
 }
 
 // 处理响应
-func (s *service) handleResponse(response sip.Response, tx sip.ClientTransaction) {
+func (s *service) handleResponse(response sip.Response) {
 	defer s.hwg.Done()
-
+	var tx sip.ClientTransaction
+	if t := response.Transaction(); t != nil {
+		tx = t.(sip.ClientTransaction)
+	}
 	err := s.opts.Callback.DoResponse(response, tx)
 	// NotExitCallbackError
 	var notExitCallbackError *callback.NotExitCallbackError

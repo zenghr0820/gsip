@@ -11,8 +11,7 @@ type Transaction interface {
 type ServerTransaction interface {
 	Transaction
 	SendResponse(res Response) error
-	AckRequest() <-chan Request
-	CancelRequest() <-chan Request
+	Requests() <-chan Request
 }
 
 type ClientTransaction interface {

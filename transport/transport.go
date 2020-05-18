@@ -175,7 +175,6 @@ func (tpl *layer) Send(message sip.Message) error {
 		if !viaHop.Params.Has("rport") {
 			viaHop.Params.Add("rport", nil)
 		}
-		logger.Info("msg.Destination() 22 -> ", msg.Destination())
 		var err error
 		for _, nt := range nets {
 			protocol, ok := tpl.protocols.get(protocolKey(nt))
@@ -191,7 +190,7 @@ func (tpl *layer) Send(message sip.Message) error {
 			viaHop.Port = &defPort
 
 			var target *sip.Addr
-			logger.Info("msg.Destination() -> ", msg.Destination())
+			//logger.Info("msg.Destination() -> ", msg.Destination())
 			target, err = sip.NewTargetFromAddr(msg.Destination())
 			if err != nil {
 				continue
@@ -221,7 +220,7 @@ func (tpl *layer) Send(message sip.Message) error {
 				}
 			}
 
-			logger.Infof("[tpl_layer] -> sending SIP request:\n%s", msg)
+			logger.Debugf("[tpl_layer] -> sending SIP request:\n%s", msg)
 
 			err = protocol.Send(target, msg)
 			if err == nil {
@@ -245,7 +244,7 @@ func (tpl *layer) Send(message sip.Message) error {
 			return err
 		}
 
-		logger.Infof("[tpl_layer] -> send SIP response:\n%s", msg)
+		logger.Debugf("[tpl_layer] -> send SIP response:\n%s", msg)
 
 		return protocol.Send(target, msg)
 	default:
@@ -283,14 +282,14 @@ func (tpl *layer) release() {
 
 // 处理监听的信息
 func (tpl *layer) handleMessage(message sip.Message) {
-	logger.Info("[tpl_layer] -> received SIP message [Protocol]")
+	logger.Debug("[tpl_layer] -> received SIP message [Protocol]")
 	logger.Debug("[tpl_layer] -> passing up SIP message...")
 
 	// 往上层抛消息
 	select {
 	case <-tpl.cancel:
 	case tpl.upMessage <- message:
-		logger.Info("[tpl_layer] -> SIP message passed up [transaction]")
+		logger.Debug("[tpl_layer] -> SIP message passed up [transaction]")
 	}
 }
 

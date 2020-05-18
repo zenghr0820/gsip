@@ -102,7 +102,7 @@ func (pool *connectionPool) ListenHandlers() {
 			case <-pool.cancel:
 				return
 			case pool.output <- message:
-				logger.Info("[connection_pool] -> SIP message passed up [transport_layer]")
+				logger.Debug("[connection_pool] -> SIP message passed up [transport_layer]")
 
 				continue
 			}
