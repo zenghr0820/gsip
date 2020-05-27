@@ -2,10 +2,82 @@
  基于 Golang 实现的 SIP 协议栈
 
  # 写在前面
- **该项目只是用于学习 Golang 创建的，暂无打算实战中使用**
+- 本项目是在 [@gosip](https://github.com/ghettovoice/gosip) 的 repo 基础上修改，根据自己的使用习惯修改添加，感谢！
+
+# 使用
+
+> go get -u github.com/zenghr0820/gsip
+
+```go
+import (
+	"fmt"
+
+	"github.com/zenghr0820/gsip"
+  "github.com/zenghr0820/gsip/sip"
+)
+
+// 处理sip请求
+var RequestHandleMap map[sip.RequestMethod]sip.RequestHandler
+// 处理 SIP 响应
+var ResponseHandle sip.ResponseHandler
+
+// 初始化
+func init() {
+	RequestHandleMap = map[sip.RequestMethod]sip.RequestHandler{
+    sip.REGISTER: func doRegister(request sip.Request, tx sip.ServerTransaction) {
+      // ...
+    },
+		sip.MESSAGE:  func doRegister(request sip.Request, tx sip.ServerTransaction) {
+      // ...
+    },
+    // ...
+	}
+  
+  ResponseHandle = func doResponse(response sip.Response, tx sip.ClientTransaction) {
+    // ...
+  }
+}
+
+func InitSipServlet() {
+
+	// 创建 SIP 服务
+	service := gsip.NewService(
+		gsip.Transport("192.168.0.102"),
+		// 添加 sip 处理函数
+		gsip.RequestCallback(RequestHandleMap),
+		gsip.ResponseCallback(ResponseHandle),
+		// 开启 sip 日志
+		gsip.LoggerConfig(
+			gsip.LoggerEnv("dev"),
+			gsip.LoggerLevel("info"),
+		),
+	)
+
+	// 监听 sip 端口
+	if err := service.Listen("udp", fmt.Sprintf(
+		"%s:%s",
+		"0.0.0.0",
+		5060)); err !=nil {
+		fmt.println(err)
+	}
+
+	if err := service.Listen("tcp", fmt.Sprintf(
+		"%s:%s",
+		"0.0.0.0",
+		5060)); err !=nil {
+		fmt.println(err)
+	}
+  
+  // 阻塞运行
+  if err := service.Run(); err != nil {
+		fmt.println(err)
+	}
+  
+}
+```
+
+
 
  # 参考资料
  - [gosip](https://github.com/ghettovoice/gosip)
- - [gossip](https://github.com/StefanKopieczek/gossip)
- - [go-sip](https://github.com/1lann/go-sip)
 
