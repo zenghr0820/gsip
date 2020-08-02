@@ -175,6 +175,22 @@ func (tpl *layer) Send(message sip.Message) error {
 		if !viaHop.Params.Has("rport") {
 			viaHop.Params.Add("rport", nil)
 		}
+
+		// RFC 3621 - 12.1.2
+		// 请求是 INVITE 必须在Contact头域中提供一个地址
+		if msg.IsInvite() {
+			if contact := msg.Contact(); contact == nil {
+				if from := msg.From(); from != nil {
+					contact = &sip.ContactHeader{
+						DisplayName: nil,
+						Address:     from.Address.Copy(),
+						Params:      nil,
+					}
+					msg.PrependHeaderAfter(contact, "CSeq")
+				}
+			}
+		}
+
 		var err error
 		for _, nt := range nets {
 			protocol, ok := tpl.protocols.get(protocolKey(nt))
@@ -190,7 +206,7 @@ func (tpl *layer) Send(message sip.Message) error {
 			viaHop.Port = &defPort
 
 			var target *sip.Addr
-			//logger.Info("msg.Destination() -> ", msg.Destination())
+			// logger.Info("msg.Destination() -> ", msg.Destination())
 			target, err = sip.NewTargetFromAddr(msg.Destination())
 			if err != nil {
 				continue

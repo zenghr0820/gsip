@@ -8,6 +8,8 @@ import (
 type Service interface {
 	// 返回当前配置选项
 	Options() Options
+	// 返回当前配置选项
+	Session(key string) sip.Session
 	// 创建 Sip Uri 实体
 	CreateSipUri(user string, domain string) sip.Uri
 	// 创建请求

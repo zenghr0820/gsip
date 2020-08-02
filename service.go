@@ -15,6 +15,8 @@ import (
 
 type service struct {
 	opts Options
+	// session
+	session map[string]sip.Session
 
 	close chan bool
 	hwg   sync.WaitGroup
@@ -24,6 +26,7 @@ type service struct {
 func newService(opts ...Option) Service {
 	service := new(service)
 	service.opts = newOptions(opts...)
+	service.session = make(map[string]sip.Session)
 	// 开启 goroutine 监听 SIP 服务
 	go service.start()
 	return service
@@ -46,6 +49,10 @@ func (s *service) Send(message sip.Message) (sip.Transaction, error) {
 	return s.opts.tx.Send(message)
 }
 
+func (s *service) Session(key string) sip.Session {
+	return s.opts.tx.Session(key)
+}
+
 func (s *service) autoFillMessageHeaderAndSend(message sip.Message) {
 	autoAppendMethods := map[sip.RequestMethod]bool{
 		sip.INVITE:   true,
@@ -62,7 +69,7 @@ func (s *service) autoFillMessageHeaderAndSend(message sip.Message) {
 		msgMethod = m.Method()
 	case sip.Response:
 		statusCode = m.StatusCode()
-		if cseq, ok := m.CSeq(); ok && !m.IsProvisional() {
+		if cseq := m.CSeq(); cseq != nil && !m.IsProvisional() {
 			msgMethod = cseq.MethodName
 		}
 	}
@@ -94,7 +101,7 @@ func (s *service) autoFillMessageHeaderAndSend(message sip.Message) {
 	}
 
 	// from tag
-	if from, ok := message.From(); ok && !from.Params.Has("tag") {
+	if from := message.From(); from != nil && !from.Params.Has("tag") {
 		from.Params.Add("tag", &sip.String{Str: utils.RandString(10, true)})
 	}
 }

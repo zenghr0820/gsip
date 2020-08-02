@@ -2,7 +2,7 @@ package sip
 
 type Transaction interface {
 	Origin() Request
-	Session() Session
+	// Session() Session
 	String() string
 	Errors() <-chan error
 	Done() <-chan bool

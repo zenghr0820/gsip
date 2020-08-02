@@ -250,7 +250,7 @@ func AuthorizeRequest(request Request, Response Response, user, Password MaybeSt
 		viaHop.Params.Add("branch", String{Str: GenerateBranch()})
 	}
 
-	if cseq, ok := request.CSeq(); ok {
+	if cseq := request.CSeq(); cseq != nil {
 		cseq.SeqNo++
 	}
 

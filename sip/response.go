@@ -150,17 +150,24 @@ func (res *response) IsGlobalError() bool {
 }
 
 func (res *response) IsAck() bool {
-	if seq, ok := res.CSeq(); ok {
+	if seq := res.CSeq(); seq != nil {
 		return seq.MethodName == ACK
 	}
 	return false
 }
 
 func (res *response) IsCancel() bool {
-	if seq, ok := res.CSeq(); ok {
+	if seq := res.CSeq(); seq != nil {
 		return seq.MethodName == CANCEL
 	}
 	return false
+}
+
+func (res *response) Method() RequestMethod {
+	if seq := res.CSeq(); seq != nil {
+		return seq.MethodName
+	}
+	return ""
 }
 
 // RFC 3261 - 8.2.6
@@ -266,9 +273,9 @@ func (res *response) CreateAck() Request {
 	CopyHeaders("To", res, ackRequest)
 	CopyHeaders("Call-ID", res, ackRequest)
 	CopyHeaders("CSeq", res, ackRequest)
-	cSeq, _ := ackRequest.CSeq()
-	cSeq.MethodName = ACK
-
+	if cSeq := ackRequest.CSeq(); cSeq != nil {
+		cSeq.MethodName = ACK
+	}
 	return ackRequest
 }
 

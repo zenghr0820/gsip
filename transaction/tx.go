@@ -29,7 +29,7 @@ type Tx interface {
 	// 返回传输层实例
 	Transport() transport.Layer
 	// 返回 session
-	Session() sip.Session
+	// Session() sip.Session
 	// 关闭事务
 	Close()
 	// 返回接收异常通道
@@ -49,7 +49,7 @@ type commonTx struct {
 	// 传输层
 	tpl transport.Layer
 	// session
-	session sip.Session
+	// session sip.Session
 	// 最后接收到的响应
 	lastResp sip.Response
 	// 接收异常通道
@@ -80,9 +80,9 @@ func (tx *commonTx) Transport() transport.Layer {
 	return tx.tpl
 }
 
-func (tx *commonTx) Session() sip.Session {
-	return tx.session
-}
+// func (tx *commonTx) Session() sip.Session {
+// 	return tx.session
+// }
 
 func (tx *commonTx) Errors() <-chan error {
 	return tx.errs
@@ -102,8 +102,8 @@ func MakeServerTxKey(msg sip.Message) (TxKey, error) {
 		return "", fmt.Errorf("'Via' header not found or empty in message '%s'", msg.Short())
 	}
 
-	seq, ok := msg.CSeq()
-	if !ok {
+	seq := msg.CSeq()
+	if seq == nil {
 		return "", fmt.Errorf("'CSeq' header not found in message '%s'", msg.Short())
 	}
 	method := seq.MethodName
@@ -140,16 +140,16 @@ func MakeServerTxKey(msg sip.Message) (TxKey, error) {
 		}, sep)), nil
 	}
 	// RFC 2543 compliant
-	from, ok := msg.From()
-	if !ok {
+	from := msg.From()
+	if from == nil {
 		return "", fmt.Errorf("'From' header not found in message '%s'", msg.Short())
 	}
 	fromTag, ok := from.Params.Get("tag")
 	if !ok {
 		return "", fmt.Errorf("'tag' param not found in 'From' header of message '%s'", msg.Short())
 	}
-	callId, ok := msg.CallID()
-	if !ok {
+	callId := msg.CallID()
+	if callId == nil {
 		return "", fmt.Errorf("'Call-ID' header not found in message '%s'", msg.Short())
 	}
 
@@ -169,8 +169,8 @@ func MakeServerTxKey(msg sip.Message) (TxKey, error) {
 func MakeClientTxKey(msg sip.Message) (TxKey, error) {
 	var sep = "__"
 
-	cseq, ok := msg.CSeq()
-	if !ok {
+	cseq := msg.CSeq()
+	if cseq == nil {
 		return "", fmt.Errorf("'CSeq' header not found in message '%s'", msg.Short())
 	}
 	method := cseq.MethodName

@@ -9,3 +9,4 @@ require (
 	github.com/zenghr0820/zap-logger v0.0.0-20200503085727-9d317b67dd14
 	go.uber.org/zap v1.15.0 // indirect
 )
+replace github.com/zenghr0820/zap-logger => /Users/zenghr/MyProject/GoProject/zap-logger

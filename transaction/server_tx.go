@@ -28,10 +28,10 @@ func NewServerTx(origin sip.Request, tpl transport.Layer) (ServerTx, error) {
 	tx := new(serverTx)
 	tx.key = key
 	tx.tpl = tpl
-	tx.session = sip.CreateSession()
+	// tx.session = sip.CreateSession()
 	// about ~10 retransmits
 	tx.requests = make(chan sip.Request, 64)
-	//tx.cancelRequest = make(chan sip.Request, 64)
+	// tx.cancelRequest = make(chan sip.Request, 64)
 	tx.errs = make(chan error, 64)
 	tx.done = make(chan bool)
 

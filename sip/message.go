@@ -2,6 +2,7 @@ package sip
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -12,6 +13,7 @@ type Message interface {
 	MessageID() MessageID
 	Short() string
 	String() string
+	Method() RequestMethod
 
 	// SIP 请求是根据起始行中的 Request-Line 来区分的
 	// Request-Line = Method SP Request-URI SP SIP-VERSION CRLF
@@ -32,6 +34,9 @@ type Message interface {
 	AddHeader(header Header)
 	// 替换头部参数
 	ReplaceHeader(header Header)
+	PrependHeader(header Header)
+	// 将参数插入至某个头部后面
+	PrependHeaderAfter(header Header, afterName string)
 	// 删除头部参数
 	DelHeader(name ...string)
 
@@ -41,25 +46,26 @@ type Message interface {
 	SetBody(body string, setContentLength bool)
 
 	// CallID returns 'Call-ID' header.
-	CallID() (*CallID, bool)
+	// CallID() (*CallID, bool)
+	CallID() *CallID
 	// Via returns the top 'Via' header field.
 	Via() (ViaHeader, bool)
 	// ViaHop returns the first segment of the top 'Via' header.
 	ViaHop() (*ViaHop, bool)
 	// From returns 'From' header field.
-	From() (*FromHeader, bool)
+	From() *FromHeader
 	// To returns 'To' header field.
-	To() (*ToHeader, bool)
+	To() *ToHeader
 	// CSeq returns 'CSeq' header field.
-	CSeq() (*CSeq, bool)
+	CSeq() *CSeq
 	// Expires returns 'Expires' header field.
-	Expires() (*Expires, bool)
+	Expires() *Expires
 	// Authorization returns 'Authorization' header field.
 	Authorization() *Authorization
 
-	ContentLength() (*ContentLength, bool)
-	ContentType() (*ContentType, bool)
-	Contact() (*ContactHeader, bool)
+	ContentLength() *ContentLength
+	ContentType() *ContentType
+	Contact() *ContactHeader
 
 	Transaction() Transaction      // 返回事务层指针
 	SetTransaction(tx Transaction) // 返回事务层指针
@@ -69,8 +75,9 @@ type Message interface {
 	Destination() string           // 目的地地址
 	SetDestination(dest string)    // 设置目的地地址
 
-	IsCancel() bool // 是否关闭
-	IsAck() bool    // 是否是 ACK 信息
+	IsCancel() bool   // 是否关闭
+	IsAck() bool      // 是否是 ACK 信息
+	DialogId() string // 对话(Dialog)
 }
 
 // basic message implementation
@@ -161,6 +168,23 @@ func (msg *message) Destination() string {
 }
 func (msg *message) SetDestination(dest string) {
 	msg.dest = dest
+}
+func (msg *message) DialogId() string {
+	var (
+		callId  string
+		fromTag MaybeString
+		toTag   MaybeString
+	)
+	if callHead := msg.CallID(); callHead != nil {
+		callId = string(*callHead)
+	}
+	if from := msg.From(); from != nil {
+		fromTag, _ = from.Params.Get("tag")
+	}
+	if to := msg.To(); to != nil {
+		toTag, _ = to.Params.Get("tag")
+	}
+	return fmt.Sprintf("%s#%s#%s", callId, fromTag, toTag)
 }
 
 func CopyHeaders(name string, from, to Message) {

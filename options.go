@@ -63,11 +63,11 @@ func AddRequestCallback(method sip.RequestMethod, handler sip.RequestHandler) Op
 }
 
 // 配置响应回调函数
-//func AddResponseCallback(method sip.ResponseMethod, handler sip.ResponseHandler) Option {
-//	return func(o *Options) {
-//		o.Callback.AddResponseHandle(method, handler)
-//	}
-//}
+// func AddResponseCallback(method sip.ResponseMethod, handler sip.ResponseHandler) Option {
+// 	return func(o *Options) {
+// 		o.Callback.AddResponseHandle(method, handler)
+// 	}
+// }
 
 // 配置传输层IP地址
 func Transport(localhost string) Option {

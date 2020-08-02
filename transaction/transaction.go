@@ -16,13 +16,12 @@ func CreateLayer(tpl transport.Layer) Layer {
 	txl := &layer{
 		tpl:          tpl,
 		transactions: createTransactionPool(),
-
-		requests:  make(chan sip.Request),
-		responses: make(chan sip.Response),
-
-		errs:     make(chan error),
-		done:     make(chan struct{}),
-		canceled: make(chan struct{}),
+		sessionStore: createSessionPool(),
+		requests:     make(chan sip.Request),
+		responses:    make(chan sip.Response),
+		errs:         make(chan error),
+		done:         make(chan struct{}),
+		canceled:     make(chan struct{}),
 	}
 
 	go txl.listenMessages()
@@ -37,10 +36,12 @@ type Layer interface {
 	// 传输层实例
 	Transport() transport.Layer
 	// Requests returns channel with new incoming server transactions.
-	//Requests() <-chan sip.ServerTransaction
+	// Requests() <-chan sip.ServerTransaction
 	Requests() <-chan sip.Request
 	// Responses returns channel with not matched responses.
 	Responses() <-chan sip.Response
+	// 返回 session
+	Session(key string) sip.Session
 	Errors() <-chan error
 	// 关闭释放资源
 	Close()
@@ -55,6 +56,7 @@ type layer struct {
 	ackRequest   chan sip.Request
 	responses    chan sip.Response
 	transactions *transactionPool
+	sessionStore *sessionPool // session
 
 	errs     chan error
 	done     chan struct{}
@@ -72,6 +74,11 @@ func (txl *layer) Requests() <-chan sip.Request {
 // 返回响应传输通道
 func (txl *layer) Responses() <-chan sip.Response {
 	return txl.responses
+}
+
+// 返回 session
+func (txl *layer) Session(key string) sip.Session {
+	return txl.sessionStore.get(key)
 }
 
 // 返回异常现象
@@ -115,6 +122,7 @@ func (txl *layer) Done() <-chan struct{} {
 // 发送请求或者响应
 func (txl *layer) Send(message sip.Message) (sip.Transaction, error) {
 	logger.Debug("[txl_layer] -> Start parsing information type ")
+
 	switch msg := message.(type) {
 	case sip.Request:
 		return txl.sendRequest(msg)
@@ -147,6 +155,9 @@ func (txl *layer) sendRequest(req sip.Request) (sip.ClientTransaction, error) {
 		return nil, fmt.Errorf("[txl_layer] -> transaction layer is canceled")
 	default:
 	}
+
+	// session
+	txl.updateSession(req)
 
 	// RFC 3621 - 17.0 对于 ACK 来说，是不存在客户事务的
 	if req.IsAck() {
@@ -186,6 +197,9 @@ func (txl *layer) sendResponse(res sip.Response) (sip.ServerTransaction, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	// session
+	txl.handleSession(tx.Origin().Method(), res)
 
 	err = tx.SendResponse(res)
 	if err != nil {
@@ -249,6 +263,8 @@ func (txl *layer) serveTransaction(tx Tx) {
 					if !ok {
 						return
 					}
+					// session
+					txl.handleSession(tx.Origin().Method(), resp)
 					txl.responses <- resp
 				}
 			}
@@ -275,6 +291,26 @@ func (txl *layer) serveTransaction(tx Tx) {
 		case <-tx.Done():
 			return
 
+		}
+	}
+}
+
+// 处理 session 的更新
+func (txl *layer) updateSession(req sip.Request) {
+	if session := txl.Session(req.DialogId()); session != nil {
+		session.SeqAtom()
+	}
+}
+
+// 处理 session 的创建以及销毁
+func (txl *layer) handleSession(method sip.RequestMethod, resp sip.Response) {
+	if resp.IsSuccess() {
+		if method == sip.BYE { // 销毁 session
+			txl.sessionStore.drop(resp.DialogId())
+		} else if method == sip.INVITE { // 创建 session
+			session := sip.CreateSession(resp.DialogId())
+			session.SaveMessage(resp)
+			txl.sessionStore.put(resp.DialogId(), session)
 		}
 	}
 }
@@ -307,6 +343,9 @@ func (txl *layer) handleRequest(req sip.Request) {
 		return
 	default:
 	}
+
+	// session
+	txl.updateSession(req)
 
 	// try to match to existent tx: request retransmission, or ACKs on non-2xx, or CANCEL
 	tx, err := txl.getServerTx(req)

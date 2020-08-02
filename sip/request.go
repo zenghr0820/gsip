@@ -14,7 +14,6 @@ import (
 // Request RFC 3261 - 7.1.
 type Request interface {
 	Message
-	Method() RequestMethod
 	SetMethod(method RequestMethod)
 	Recipient() Uri
 	SetRecipient(recipient Uri)
@@ -78,13 +77,13 @@ func CreateSimpleRequest(method RequestMethod, remoteAddr string) Request {
 	return req
 }
 
-//func newRequest() Request {
-//	req := new(request)
-//	req.messID = MessageID(uuid.Must(uuid.NewV4(), nil).String())
-//	req.headers = newHeaders([]Header{})
-//	req.startLine = req.StartLine
-//	return req
-//}
+// func newRequest() Request {
+// 	req := new(request)
+// 	req.messID = MessageID(uuid.Must(uuid.NewV4(), nil).String())
+// 	req.headers = newHeaders([]Header{})
+// 	req.startLine = req.StartLine
+// 	return req
+// }
 
 func (req *request) Short() string {
 	if req == nil {
@@ -99,7 +98,7 @@ func (req *request) Method() RequestMethod {
 }
 func (req *request) SetMethod(method RequestMethod) {
 	req.method = method
-	if cSeq, ok := req.CSeq(); ok {
+	if cSeq := req.CSeq(); cSeq != nil {
 		cSeq.MethodName = method
 	}
 }
@@ -140,8 +139,8 @@ func (req *request) StartLine() string {
 
 		recipient.SetDomain(domain)
 	} else {
-		to, ok := req.To()
-		if ok {
+		to := req.To()
+		if to != nil {
 			recipient = to.Address.Copy()
 			recipient.SetUriParams(nil)
 			recipient.SetHeaders(nil)
@@ -149,7 +148,7 @@ func (req *request) StartLine() string {
 	}
 	req.SetRecipient(recipient)
 
-	//logger.Info("recipient = ", recipient)
+	// logger.Info("recipient = ", recipient)
 
 	buffer.WriteString(
 		fmt.Sprintf(
@@ -275,7 +274,7 @@ func (req *request) CreateResponse(statusCode StatusCode) Response {
 	// 此外，UAS 还必须增加一个 Tag 到 To 头域 上(100(trying)应答 是一个例外
 	if statusCode == 100 {
 		CopyHeaders("Timestamp", req, res)
-	} else if to, ok := res.To(); !ok || !to.Params.Has("tag") {
+	} else if to := res.To(); to != nil && !to.Params.Has("tag") {
 		to.Params.Add("tag", &String{utils.RandString(10, true)})
 	}
 
@@ -284,9 +283,9 @@ func (req *request) CreateResponse(statusCode StatusCode) Response {
 	res.SetDestination(req.Source())
 
 	// 设置事务层
-	//if tx := req.Transaction(); tx != nil {
-	//	res.SetTransaction(tx)
-	//}
+	// if tx := req.Transaction(); tx != nil {
+	// 	res.SetTransaction(tx)
+	// }
 
 	return res
 }
@@ -315,7 +314,7 @@ func (req *request) CreateResponseReason(statusCode StatusCode, reason string) R
 	// 此外，UAS 还必须增加一个 Tag 到 To 头域 上(100(trying)应答 是一个例外
 	if statusCode == 100 {
 		CopyHeaders("Timestamp", req, res)
-	} else if to, ok := res.To(); !ok || !to.Params.Has("tag") {
+	} else if to := res.To(); to != nil && !to.Params.Has("tag") {
 		to.Params.Add("tag", &String{utils.RandString(10, true)})
 	}
 

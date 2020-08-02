@@ -163,7 +163,7 @@ func (handler *connectionHandler) ConnectionServer(done func()) {
 		}
 
 	}
-	//handler.pipeOutputs(message, errs)
+	// handler.pipeOutputs(message, errs)
 
 }
 
@@ -174,7 +174,7 @@ func (handler *connectionHandler) readConnection() (<-chan sip.Message, <-chan e
 	streamed := handler.Connection().Streamed()
 	// 创建解析器 todo
 	prs := sip.NewParser(message, readError, streamed)
-	//prs := parser.NewParser(message, readError, streamed)
+	// prs := parser.NewParser(message, readError, streamed)
 
 	// 开启 goroutine 读取
 	go func() {

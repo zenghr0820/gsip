@@ -107,8 +107,8 @@ func DefaultHeader() *headers {
 	hs.AddHeader(DefaultViaHeader())  // via
 	hs.AddHeader(DefaultFromHeader()) // from
 	hs.AddHeader(DefaultToHeader())   // to
-	//hs.AddHeader(DefaultFromHeader())  // from
-	//hs.AddHeader(DefaultToHeader())    // to
+	// hs.AddHeader(DefaultFromHeader())  // from
+	// hs.AddHeader(DefaultToHeader())    // to
 	hs.AddHeader(DefaultCallID())      // Call-Id
 	hs.AddHeader(DefaultCSeq())        // Cseq
 	hs.AddHeader(DefaultMaxForwards()) // Max-Forwards
@@ -303,28 +303,28 @@ func (hs *headers) CloneHeaders() []Header {
 	return hers
 }
 
-func (hs *headers) CallID() (*CallID, bool) {
+func (hs *headers) CallID() *CallID {
 	hers := hs.GetHeaders("Call-ID")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	callId, ok := hers[0].(*CallID)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return callId, true
+	return callId
 }
 
-func (hs *headers) Expires() (*Expires, bool) {
+func (hs *headers) Expires() *Expires {
 	hers := hs.GetHeaders("Expires")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	expire, ok := hers[0].(*Expires)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return expire, true
+	return expire
 }
 
 func (hs *headers) Authorization() *Authorization {
@@ -366,76 +366,76 @@ func (hs *headers) ViaHop() (*ViaHop, bool) {
 	return hops[0], true
 }
 
-func (hs *headers) From() (*FromHeader, bool) {
+func (hs *headers) From() *FromHeader {
 	hers := hs.GetHeaders("From")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	from, ok := hers[0].(*FromHeader)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return from, true
+	return from
 }
 
-func (hs *headers) To() (*ToHeader, bool) {
+func (hs *headers) To() *ToHeader {
 	hers := hs.GetHeaders("To")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	to, ok := hers[0].(*ToHeader)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return to, true
+	return to
 }
 
-func (hs *headers) CSeq() (*CSeq, bool) {
+func (hs *headers) CSeq() *CSeq {
 	hers := hs.GetHeaders("CSeq")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	cseq, ok := hers[0].(*CSeq)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return cseq, true
+	return cseq
 }
 
-func (hs *headers) ContentLength() (*ContentLength, bool) {
+func (hs *headers) ContentLength() *ContentLength {
 	hers := hs.GetHeaders("Content-Length")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	contentLength, ok := hers[0].(*ContentLength)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return contentLength, true
+	return contentLength
 }
 
-func (hs *headers) ContentType() (*ContentType, bool) {
+func (hs *headers) ContentType() *ContentType {
 	hers := hs.GetHeaders("Content-Type")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	contentType, ok := hers[0].(*ContentType)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return contentType, true
+	return contentType
 }
 
-func (hs *headers) Contact() (*ContactHeader, bool) {
+func (hs *headers) Contact() *ContactHeader {
 	hers := hs.GetHeaders("Contact")
 	if len(hers) == 0 {
-		return nil, false
+		return nil
 	}
 	contactHeader, ok := hers[0].(*ContactHeader)
 	if !ok {
-		return nil, false
+		return nil
 	}
-	return contactHeader, true
+	return contactHeader
 }
 
 // ==========================
@@ -636,7 +636,7 @@ func (allow AllowHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=======================
+// ======================
 // 		CSeq 头部实现
 // ======================
 type CSeq struct {
@@ -673,13 +673,13 @@ func (seq *CSeq) Equals(other interface{}) bool {
 	return false
 }
 
-//=======================
+// ======================
 // 		CallID 头部实现
 // ======================
 type CallID string
 
 func DefaultCallID() *CallID {
-	callId := CallID(utils.RandString(11, true))
+	callId := CallID(utils.RandString(11, false))
 	return &callId
 }
 
@@ -704,7 +704,7 @@ func (callId *CallID) Equals(other interface{}) bool {
 	return false
 }
 
-//=======================
+// ======================
 // 		Contact 头部实现
 // ======================
 type ContactHeader struct {
@@ -760,7 +760,7 @@ func (contact *ContactHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		ContentLength 实现
 // ============================
 type ContentLength uint32
@@ -784,7 +784,7 @@ func (contentLength *ContentLength) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		ContentType 实现
 // ============================
 type ContentType string
@@ -806,7 +806,7 @@ func (ct *ContentType) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		Expires 实现
 // ============================
 type Expires uint32
@@ -830,7 +830,7 @@ func (expires *Expires) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		FromHeader 实现
 // ============================
 type FromHeader struct {
@@ -885,7 +885,7 @@ func (from *FromHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		Generic 实现
 // ============================
 type GenericHeader struct {
@@ -923,7 +923,7 @@ func (header *GenericHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		MaxForwards 实现
 // ============================
 type MaxForwards uint32
@@ -952,7 +952,7 @@ func (maxForwards *MaxForwards) Equals(other interface{}) bool {
 	return false
 }
 
-//================================
+// ===============================
 // 		Proxy-Require 头部实现
 // ===============================
 type ProxyRequireHeader struct {
@@ -990,7 +990,7 @@ func (proxyRequire *ProxyRequireHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		RecordRoute 实现
 // ============================
 type RecordRouteHeader struct {
@@ -1035,7 +1035,7 @@ func (route *RecordRouteHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		Require 实现
 // ============================
 type RequireHeader struct {
@@ -1073,7 +1073,7 @@ func (require *RequireHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//======================
+// ======================
 // 		Route 头部实现
 // ======================
 type RouteHeader struct {
@@ -1118,7 +1118,7 @@ func (route *RouteHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		ExpSupported 实现
 // ============================
 type SupportedHeader struct {
@@ -1156,7 +1156,7 @@ func (support *SupportedHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		ToHeader 实现
 // ============================
 type ToHeader struct {
@@ -1215,7 +1215,7 @@ func (to *ToHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		Unsupported 实现
 // ============================
 type UnsupportedHeader struct {
@@ -1253,7 +1253,7 @@ func (unsupported *UnsupportedHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=============================
+// ============================
 // 		UserAgent 实现
 // ============================
 type UserAgentHeader string
@@ -1277,7 +1277,7 @@ func (ua *UserAgentHeader) Equals(other interface{}) bool {
 	return false
 }
 
-//=======================
+// ======================
 // 		Via 头部实现
 // ======================
 type ViaHop struct {
@@ -1416,7 +1416,7 @@ func CopyWithNil(params Params) Params {
 	return params.Copy()
 }
 
-//=============================
+// ============================
 // 		SipUri 实现
 // ============================
 type SipUri struct {
@@ -1561,9 +1561,9 @@ func (uri *SipUri) String() string {
 	buffer.WriteString(uri.FDomain.String())
 
 	// Optional port number.
-	//if uri.FPort != nil {
-	//	buffer.WriteString(fmt.Sprintf(":%d", *uri.FPort))
-	//}
+	// if uri.FPort != nil {
+	// 	buffer.WriteString(fmt.Sprintf(":%d", *uri.FPort))
+	// }
 
 	if (uri.FUriParams != nil) && uri.FUriParams.Length() > 0 {
 		buffer.WriteString(";")
@@ -1598,7 +1598,7 @@ func (uri *SipUri) Copy() Uri {
 	return newUri
 }
 
-//=============================
+// ============================
 // 		WildcardUri 实现
 // ============================
 // The special wildcard URI used in Contact: headers in REGISTER requests when expiring all registrations.

@@ -39,7 +39,7 @@ func NewClientTx(origin sip.Request, tpl transport.Layer) (ClientTx, error) {
 	tx := new(clientTx)
 	tx.key = key
 	tx.tpl = tpl
-	tx.session = sip.CreateSession()
+	// tx.session = sip.CreateSession()
 	tx.origin = origin
 	// buffer chan - about ~10 retransmit responses
 	tx.responses = make(chan sip.Response, 64)
@@ -55,7 +55,6 @@ func NewClientTx(origin sip.Request, tpl transport.Layer) (ClientTx, error) {
 
 func (tx *clientTx) Init() error {
 	tx.initFSM()
-
 	logger.Infof("[clientTx] -> sending SIP request: %s", tx.Key())
 
 	if err := tx.tpl.Send(tx.Origin()); err != nil {
@@ -614,15 +613,12 @@ func (tx *clientTx) actionTimeout() fsm.Input {
 
 func (tx *clientTx) actionPassUpDelete() fsm.Input {
 	logger.Debug("[clientTx] -> actionPassUpDelete")
-
 	tx.passUp()
 
 	tx.mu.Lock()
-
 	if tx.timerA != nil {
 		tx.timerA = nil
 	}
-
 	tx.mu.Unlock()
 
 	return clientInputDelete
