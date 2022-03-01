@@ -6,7 +6,7 @@ import (
 
 // SIP 服务
 type Service interface {
-	// 返回当前配置选项
+	// 返回当前配置选
 	Options() Options
 	// 返回当前配置选项
 	Session(key string) sip.Session
